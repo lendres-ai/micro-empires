@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { processTurn } from '@/lib/game/processor';
 import { generateMap } from '@/lib/game/map';
 import { db } from '@/lib/db';
+import { getCurrentTurnNumber } from '@/lib/time';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,22 +14,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Determine next turn as last processed turn id + 1
+    // Determine current target turn based on time and catch up any missed turns
     const lastTurn = await db.turn.findFirst({
       orderBy: { id: 'desc' },
     });
-    const nextTurn = (lastTurn?.id ?? 0) + 1;
-    
+    const currentTurn = getCurrentTurnNumber();
+
     // Ensure map exists
     const seed = process.env.GAME_WORLD_SEED || 'micro-empires-001';
     await generateMap(seed);
 
-    // Process the turn
-    await processTurn(nextTurn);
+    // Process all unprocessed turns up to the current turn (inclusive)
+    const startTurn = (lastTurn?.id ?? 0) + 1;
+    const processedTurns: number[] = [];
 
-    return NextResponse.json({ 
-      message: `Turn ${nextTurn} processed successfully`,
+    for (let turn = startTurn; turn <= currentTurn; turn++) {
+      await processTurn(turn);
+      processedTurns.push(turn);
+    }
+
+    return NextResponse.json({
+      message: processedTurns.length > 0
+        ? `Processed turns: ${processedTurns.join(', ')}`
+        : 'No turns to process',
       processedAt: new Date().toISOString(),
+      currentTurn,
     });
   } catch (error) {
     console.error('Error in /api/cron/process-turn:', error);
