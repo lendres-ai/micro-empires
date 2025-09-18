@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getUser } from '../../../lib/auth';
 import { db } from '../../../lib/db';
-import { getCurrentTurnNumber } from '../../../lib/time';
+import { getActiveTurnNumber } from '@/lib/turns';
 
 export async function GET() {
   try {
     const user = await getUser();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     }
 
     // Ensure user exists in local database
@@ -25,13 +25,15 @@ export async function GET() {
       });
     }
 
+    const activeTurn = await getActiveTurnNumber();
+
     const empire = await db.empire.findUnique({
       where: { userId: user.id },
       include: {
         tiles: true,
         orders: {
           where: {
-            turn: getCurrentTurnNumber(),
+            turn: activeTurn,
             status: 'PENDING',
           },
         },
@@ -44,8 +46,8 @@ export async function GET() {
         empire: null,
         resources: null,
         actionsRemaining: 0,
-        latestTurn: getCurrentTurnNumber(),
-      });
+        latestTurn: activeTurn,
+      }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     const actionsRemaining = Math.max(0, 3 - empire.orders.length);
@@ -68,10 +70,10 @@ export async function GET() {
       },
       orders: empire.orders,
       actionsRemaining,
-      latestTurn: getCurrentTurnNumber(),
-    });
+      latestTurn: activeTurn,
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error in /api/me:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }

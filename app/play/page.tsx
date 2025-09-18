@@ -58,7 +58,7 @@ function PlayContent() {
 
   const fetchUserData = async () => {
     try {
-      const response = await fetch('/api/me');
+      const response = await fetch('/api/me', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setUserData(data);
