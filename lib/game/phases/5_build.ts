@@ -1,0 +1,97 @@
+import { db } from '@/lib/db';
+import { COSTS } from '@/lib/game/constants';
+
+export async function processBuildPhase(turn: number): Promise<void> {
+  console.log(`Processing build phase for turn ${turn}`);
+
+  const buildOrders = await db.order.findMany({
+    where: {
+      turn,
+      type: 'BUILD',
+      status: 'PENDING',
+    },
+    include: {
+      empire: true,
+    },
+  });
+
+  for (const order of buildOrders) {
+    if (order.targetX !== null && order.targetY !== null) {
+      await processBuild(order, turn);
+    }
+  }
+}
+
+async function processBuild(order: any, turn: number): Promise<void> {
+  const empire = order.empire;
+  
+  // Get target tile
+  const targetTile = await db.tile.findUnique({
+    where: { x_y: { x: order.targetX!, y: order.targetY! } },
+  });
+
+  if (!targetTile || targetTile.ownerId !== empire.id) {
+    await db.log.create({
+      data: {
+        turn,
+        empireId: empire.id,
+        scope: 'EMPIRE',
+        message: `Build failed: tile not found or not owned`,
+      },
+    });
+    return;
+  }
+
+  if (targetTile.level >= 3) {
+    await db.log.create({
+      data: {
+        turn,
+        empireId: empire.id,
+        scope: 'EMPIRE',
+        message: `Build failed: tile already at maximum level`,
+      },
+    });
+    return;
+  }
+
+  const nextLevel = targetTile.level + 1;
+  const costKey = nextLevel === 2 ? 'level2' : 'level3';
+  const cost = COSTS.BUILD[costKey as keyof typeof COSTS.BUILD] as { wood: number; stone: number };
+
+  // Check resources
+  if (empire.wood < cost.wood || empire.stone < cost.stone) {
+    await db.log.create({
+      data: {
+        turn,
+        empireId: empire.id,
+        scope: 'EMPIRE',
+        message: `Build failed: insufficient resources`,
+      },
+    });
+    return;
+  }
+
+  // Upgrade tile
+  await db.tile.update({
+    where: { id: targetTile.id },
+    data: { level: nextLevel },
+  });
+
+  // Deduct resources
+  await db.empire.update({
+    where: { id: empire.id },
+    data: {
+      wood: empire.wood - cost.wood,
+      stone: empire.stone - cost.stone,
+    },
+  });
+
+  await db.log.create({
+    data: {
+      turn,
+      empireId: empire.id,
+      scope: 'EMPIRE',
+      message: `Upgraded (${order.targetX}, ${order.targetY}) to level ${nextLevel}`,
+    },
+  });
+}

@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  email        String   @unique
+  displayName  String?
+  empire       Empire?
+}
+
+model Empire {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  name         String
+  color        String   // hex color for map
+  createdAt    DateTime @default(now())
+  // Resources
+  food         Int      @default(5)
+  wood         Int      @default(5)
+  stone        Int      @default(5)
+  gold         Int      @default(5)
+  army         Int      @default(1) // abstracted power
+  // Stats
+  tilesOwned   Int      @default(0)
+  lastTurnSeen Int      @default(0)
+  isEliminated Boolean  @default(false)
+  tiles        Tile[]
+  orders       Order[]
+}
+
+enum TileType {
+  PLAIN
+  FARM
+  FOREST
+  MINE
+  HARBOR
+  RUIN
+}
+
+model Tile {
+  id         String   @id @default(cuid())
+  x          Int
+  y          Int
+  type       TileType
+  ownerId    String?
+  owner      Empire?  @relation(fields: [ownerId], references: [id])
+  level      Int      @default(1) // building/upgrade level
+  // unique index to ensure single tile per coordinate
+  @@unique([x, y])
+}
+
+enum OrderType {
+  EXPAND
+  BUILD
+  ATTACK
+  DEFEND
+  TRADE // MVP: queued, auto-expire end of turn
+}
+
+model Order {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  empireId   String
+  empire     Empire   @relation(fields: [empireId], references: [id])
+  turn       Int      // targeted turn number (today's turn)
+  type       OrderType
+  // payload fields (sparse; use based on type)
+  targetX    Int?
+  targetY    Int?
+  amount     Int?     // e.g., army committed, resources to spend
+  metadata   Json?
+  status     String   @default("PENDING") // PENDING|APPLIED|CANCELLED
+}
+
+model Turn {
+  id         Int      @id @default(autoincrement())
+  processedAt DateTime?
+  seed       String
+  eventNote  String?
+}
+
+model Log {
+  id         String   @id @default(cuid())
+  turn       Int
+  empireId   String?
+  scope      String   // "GLOBAL" | "EMPIRE"
+  message    String
+  data       Json?
+  createdAt  DateTime @default(now())
+  @@index([turn, scope])
+  @@index([empireId, turn])
+}
