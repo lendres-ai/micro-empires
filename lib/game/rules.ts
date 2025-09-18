@@ -1,5 +1,5 @@
 import { OrderType } from '@prisma/client';
-import { COSTS, WORLD } from '@/lib/game/constants';
+import { COSTS, WORLD, MAX_DAILY_ORDERS } from '@/lib/game/constants';
 import { db } from '@/lib/db';
 
 interface EmpireForValidation {
@@ -48,8 +48,8 @@ export async function validateOrder(
   }
 
   // Check order limit
-  if (empire.orders.length >= 3) {
-    return { valid: false, error: 'Maximum 3 orders per turn' };
+  if (empire.orders.length >= MAX_DAILY_ORDERS) {
+    return { valid: false, error: `Maximum ${MAX_DAILY_ORDERS} orders per turn` };
   }
 
   // Validate based on order type

@@ -1,4 +1,4 @@
-import { db } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { COMBAT } from '@/lib/game/constants';
 import { createRNG } from '@/lib/rng';
 import type { SeededRNG } from '@/lib/rng';
@@ -16,10 +16,10 @@ interface AttackOrder {
   };
 }
 
-export async function processConflictPhase(turn: number, seed: string): Promise<void> {
+export async function processConflictPhase(tx: Prisma.TransactionClient, turn: number, seed: string): Promise<void> {
   console.log(`Processing conflict phase for turn ${turn}`);
 
-  const attackOrders = await db.order.findMany({
+  const attackOrders = await tx.order.findMany({
     where: {
       turn,
       type: 'ATTACK',
@@ -34,22 +34,22 @@ export async function processConflictPhase(turn: number, seed: string): Promise<
 
   for (const order of attackOrders) {
     if (order.targetX !== null && order.targetY !== null && order.amount !== null) {
-      await processAttack(order as unknown as AttackOrder, turn, rng);
+      await processAttack(tx, order as unknown as AttackOrder, turn, rng);
     }
   }
 }
 
-async function processAttack(order: AttackOrder, turn: number, rng: SeededRNG): Promise<void> {
+async function processAttack(tx: Prisma.TransactionClient, order: AttackOrder, turn: number, rng: SeededRNG): Promise<void> {
   const attacker = order.empire;
   
   // Get target tile and defender
-  const targetTile = await db.tile.findUnique({
+  const targetTile = await tx.tile.findUnique({
     where: { x_y: { x: order.targetX!, y: order.targetY! } },
     include: { owner: true },
   });
 
   if (!targetTile || !targetTile.owner) {
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: attacker.id,
@@ -75,7 +75,7 @@ async function processAttack(order: AttackOrder, turn: number, rng: SeededRNG): 
 
   if (finalAttackerPower > finalDefenderPower) {
     // Attacker wins
-    await db.tile.update({
+    await tx.tile.update({
       where: { id: targetTile.id },
       data: {
         ownerId: attacker.id,
@@ -84,24 +84,24 @@ async function processAttack(order: AttackOrder, turn: number, rng: SeededRNG): 
     });
 
     // Update empire stats
-    await db.empire.update({
+    await tx.empire.update({
       where: { id: attacker.id },
       data: {
-        tilesOwned: attacker.tilesOwned + 1,
-        gold: attacker.gold + COMBAT.captureBonusGold,
-        army: attacker.army - order.amount, // Deduct committed army
+        tilesOwned: { increment: 1 },
+        gold: { increment: COMBAT.captureBonusGold },
+        army: { decrement: order.amount }, // Deduct committed army
       },
     });
 
-    await db.empire.update({
+    await tx.empire.update({
       where: { id: defender.id },
       data: {
-        tilesOwned: defender.tilesOwned - 1,
+        tilesOwned: { decrement: 1 },
       },
     });
 
     // Log results
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: attacker.id,
@@ -110,7 +110,7 @@ async function processAttack(order: AttackOrder, turn: number, rng: SeededRNG): 
       },
     });
 
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: defender.id,
@@ -120,14 +120,14 @@ async function processAttack(order: AttackOrder, turn: number, rng: SeededRNG): 
     });
   } else {
     // Defender wins
-    await db.empire.update({
+    await tx.empire.update({
       where: { id: attacker.id },
       data: {
-        army: attacker.army - order.amount, // Deduct committed army
+        army: { decrement: order.amount }, // Deduct committed army
       },
     });
 
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: attacker.id,
@@ -136,7 +136,7 @@ async function processAttack(order: AttackOrder, turn: number, rng: SeededRNG): 
       },
     });
 
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: defender.id,

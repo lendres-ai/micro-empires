@@ -1,4 +1,4 @@
-import { db } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { COSTS } from '@/lib/game/constants';
 import { createRNG } from '@/lib/rng';
 import type { SeededRNG } from '@/lib/rng';
@@ -15,10 +15,10 @@ interface ExpansionOrder {
   };
 }
 
-export async function processExpansionPhase(turn: number, seed: string): Promise<void> {
+export async function processExpansionPhase(tx: Prisma.TransactionClient, turn: number, seed: string): Promise<void> {
   console.log(`Processing expansion phase for turn ${turn}`);
 
-  const expansionOrders = await db.order.findMany({
+  const expansionOrders = await tx.order.findMany({
     where: {
       turn,
       type: 'EXPAND',
@@ -47,20 +47,20 @@ export async function processExpansionPhase(turn: number, seed: string): Promise
   for (const [, orders] of ordersByTile) {
     if (orders.length === 1) {
       // Single order - process directly
-      await processSingleExpansion(orders[0] as ExpansionOrder, turn);
+      await processSingleExpansion(tx, orders[0] as ExpansionOrder, turn);
     } else {
       // Multiple orders - resolve conflict
-      await resolveExpansionConflict(orders as ExpansionOrder[], turn, rng);
+      await resolveExpansionConflict(tx, orders as ExpansionOrder[], turn, rng);
     }
   }
 }
 
-async function processSingleExpansion(order: ExpansionOrder, turn: number): Promise<void> {
+async function processSingleExpansion(tx: Prisma.TransactionClient, order: ExpansionOrder, turn: number): Promise<void> {
   const empire = order.empire;
   
   // Double-check resources
   if (empire.wood < COSTS.EXPAND.wood || empire.stone < COSTS.EXPAND.stone) {
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: empire.id,
@@ -72,22 +72,22 @@ async function processSingleExpansion(order: ExpansionOrder, turn: number): Prom
   }
 
   // Update tile ownership
-  await db.tile.update({
+  await tx.tile.update({
     where: { x_y: { x: order.targetX!, y: order.targetY! } },
     data: { ownerId: empire.id },
   });
 
-  // Deduct resources
-  await db.empire.update({
+  // Deduct resources and increment tilesOwned atomically
+  await tx.empire.update({
     where: { id: empire.id },
     data: {
-      wood: empire.wood - COSTS.EXPAND.wood,
-      stone: empire.stone - COSTS.EXPAND.stone,
-      tilesOwned: empire.tilesOwned + 1,
+      wood: { decrement: COSTS.EXPAND.wood },
+      stone: { decrement: COSTS.EXPAND.stone },
+      tilesOwned: { increment: 1 },
     },
   });
 
-  await db.log.create({
+  await tx.log.create({
     data: {
       turn,
       empireId: empire.id,
@@ -97,7 +97,7 @@ async function processSingleExpansion(order: ExpansionOrder, turn: number): Prom
   });
 }
 
-async function resolveExpansionConflict(orders: ExpansionOrder[], turn: number, rng: SeededRNG): Promise<void> {
+async function resolveExpansionConflict(tx: Prisma.TransactionClient, orders: ExpansionOrder[], turn: number, rng: SeededRNG): Promise<void> {
   // For MVP, simple resolution: highest army wins, then random tie-break
   orders.sort((a, b) => {
     if (a.empire.army !== b.empire.army) {
@@ -107,12 +107,12 @@ async function resolveExpansionConflict(orders: ExpansionOrder[], turn: number, 
   });
 
   const winner = orders[0];
-  await processSingleExpansion(winner, turn);
+  await processSingleExpansion(tx, winner, turn);
 
   // Log conflicts for losers
   for (let i = 1; i < orders.length; i++) {
     const loser = orders[i];
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: loser.empire.id,

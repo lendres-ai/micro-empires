@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getUser } from '../../../lib/auth';
 import { db } from '../../../lib/db';
 import { getActiveTurnNumber } from '@/lib/turns';
+import { MAX_DAILY_ORDERS } from '@/lib/game/constants';
 
 export async function GET() {
   try {
@@ -50,7 +51,7 @@ export async function GET() {
       }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
-    const actionsRemaining = Math.max(0, 3 - empire.orders.length);
+    const actionsRemaining = Math.max(0, MAX_DAILY_ORDERS - empire.orders.length);
 
     return NextResponse.json({
       user: { id: user.id, email: user.email },

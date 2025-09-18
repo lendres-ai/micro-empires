@@ -99,9 +99,12 @@ Turns are processed daily at 21:00 Europe/Berlin time in this order:
 
 ### Manual Cron Testing
 ```bash
-# Test turn processing locally
+# Test turn processing locally (either header works)
 curl -X POST http://localhost:3000/api/cron/process-turn \
   -H "X-CRON-KEY: your_random_cron_secret_here"
+
+curl -X GET http://localhost:3000/api/cron/process-turn \
+  -H "Authorization: Bearer your_random_cron_secret_here"
 ```
 
 ## API Endpoints

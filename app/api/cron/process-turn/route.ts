@@ -3,11 +3,17 @@ import { processTurn } from '@/lib/game/processor';
 import { generateMap } from '@/lib/game/map';
 import { db } from '@/lib/db';
 
-export async function GET(request: NextRequest) {
+async function handle(request: NextRequest) {
   try {
-    // Verify cron secret using Authorization: Bearer <CRON_SECRET>
+    // Accept either Authorization: Bearer <CRON_SECRET> or X-CRON-KEY: <CRON_SECRET>
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const xCronKey = request.headers.get('x-cron-key');
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length)
+      : undefined;
+
+    const provided = bearer ?? xCronKey;
+    if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -35,4 +41,12 @@ export async function GET(request: NextRequest) {
       details: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handle(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handle(request);
 }

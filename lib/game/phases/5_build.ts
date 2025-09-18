@@ -1,10 +1,10 @@
-import { db } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { COSTS } from '@/lib/game/constants';
 
-export async function processBuildPhase(turn: number): Promise<void> {
+export async function processBuildPhase(tx: Prisma.TransactionClient, turn: number): Promise<void> {
   console.log(`Processing build phase for turn ${turn}`);
 
-  const buildOrders = await db.order.findMany({
+  const buildOrders = await tx.order.findMany({
     where: {
       turn,
       type: 'BUILD',
@@ -17,7 +17,7 @@ export async function processBuildPhase(turn: number): Promise<void> {
 
   for (const order of buildOrders) {
     if (order.targetX !== null && order.targetY !== null) {
-      await processBuild(order, turn);
+      await processBuild(tx, order, turn);
     }
   }
 }
@@ -32,16 +32,16 @@ interface BuildOrder {
   };
 }
 
-async function processBuild(order: BuildOrder, turn: number): Promise<void> {
+async function processBuild(tx: Prisma.TransactionClient, order: BuildOrder, turn: number): Promise<void> {
   const empire = order.empire;
   
   // Get target tile
-  const targetTile = await db.tile.findUnique({
+  const targetTile = await tx.tile.findUnique({
     where: { x_y: { x: order.targetX!, y: order.targetY! } },
   });
 
   if (!targetTile || targetTile.ownerId !== empire.id) {
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: empire.id,
@@ -53,7 +53,7 @@ async function processBuild(order: BuildOrder, turn: number): Promise<void> {
   }
 
   if (targetTile.level >= 3) {
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: empire.id,
@@ -70,7 +70,7 @@ async function processBuild(order: BuildOrder, turn: number): Promise<void> {
 
   // Check resources
   if (empire.wood < cost.wood || empire.stone < cost.stone) {
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         empireId: empire.id,
@@ -82,21 +82,21 @@ async function processBuild(order: BuildOrder, turn: number): Promise<void> {
   }
 
   // Upgrade tile
-  await db.tile.update({
+  await tx.tile.update({
     where: { id: targetTile.id },
     data: { level: nextLevel },
   });
 
   // Deduct resources
-  await db.empire.update({
+  await tx.empire.update({
     where: { id: empire.id },
     data: {
-      wood: empire.wood - cost.wood,
-      stone: empire.stone - cost.stone,
+      wood: { decrement: cost.wood },
+      stone: { decrement: cost.stone },
     },
   });
 
-  await db.log.create({
+  await tx.log.create({
     data: {
       turn,
       empireId: empire.id,

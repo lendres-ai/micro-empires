@@ -1,4 +1,4 @@
-import { db } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { createRNG } from '@/lib/rng';
 
 const GLOBAL_EVENTS = [
@@ -12,7 +12,7 @@ const GLOBAL_EVENTS = [
   "The seasons change dramatically, affecting all territories.",
 ];
 
-export async function processEventsPhase(turn: number, seed: string): Promise<void> {
+export async function processEventsPhase(tx: Prisma.TransactionClient, turn: number, seed: string): Promise<void> {
   console.log(`Processing events phase for turn ${turn}`);
 
   const rng = createRNG(seed, turn, 'events');
@@ -21,7 +21,7 @@ export async function processEventsPhase(turn: number, seed: string): Promise<vo
   if (rng.nextFloat() < 0.3) {
     const eventMessage = rng.pick(GLOBAL_EVENTS);
     
-    await db.log.create({
+    await tx.log.create({
       data: {
         turn,
         scope: 'GLOBAL',
