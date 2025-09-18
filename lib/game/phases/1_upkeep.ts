@@ -1,10 +1,10 @@
-import { db } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { COSTS } from '@/lib/game/constants';
 
-export async function processUpkeepPhase(turn: number): Promise<void> {
+export async function processUpkeepPhase(tx: Prisma.TransactionClient, turn: number): Promise<void> {
   console.log(`Processing upkeep phase for turn ${turn}`);
 
-  const empires = await db.empire.findMany({
+  const empires = await tx.empire.findMany({
     where: { isEliminated: false },
   });
 
@@ -13,12 +13,12 @@ export async function processUpkeepPhase(turn: number): Promise<void> {
     
     if (empire.food >= upkeepCost) {
       // Sufficient food
-      await db.empire.update({
+      await tx.empire.update({
         where: { id: empire.id },
         data: { food: empire.food - upkeepCost },
       });
 
-      await db.log.create({
+      await tx.log.create({
         data: {
           turn,
           empireId: empire.id,
@@ -31,7 +31,7 @@ export async function processUpkeepPhase(turn: number): Promise<void> {
       const armyReduction = Math.ceil((upkeepCost - empire.food) / COSTS.ARMY_PER_TURN_UPKEEP);
       const newArmySize = Math.max(0, empire.army - armyReduction);
       
-      await db.empire.update({
+      await tx.empire.update({
         where: { id: empire.id },
         data: { 
           food: 0,
@@ -39,7 +39,7 @@ export async function processUpkeepPhase(turn: number): Promise<void> {
         },
       });
 
-      await db.log.create({
+      await tx.log.create({
         data: {
           turn,
           empireId: empire.id,
@@ -50,12 +50,12 @@ export async function processUpkeepPhase(turn: number): Promise<void> {
 
       // Check if empire is eliminated
       if (newArmySize === 0) {
-        await db.empire.update({
+        await tx.empire.update({
           where: { id: empire.id },
           data: { isEliminated: true },
         });
 
-        await db.log.create({
+        await tx.log.create({
           data: {
             turn,
             empireId: empire.id,

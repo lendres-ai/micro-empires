@@ -44,13 +44,13 @@ export async function processTurn(targetTurn: number): Promise<void> {
 
       console.log(`Found ${pendingOrders.length} pending orders for turn ${targetTurn}`);
 
-      // Process phases in order
-      await processUpkeepPhase(targetTurn);
-      await processProductionPhase(targetTurn);
-      await processExpansionPhase(targetTurn, seed);
-      await processConflictPhase(targetTurn, seed);
-      await processBuildPhase(targetTurn);
-      await processEventsPhase(targetTurn, seed);
+      // Process phases in order (all inside the same transaction)
+      await processUpkeepPhase(tx, targetTurn);
+      await processProductionPhase(tx, targetTurn);
+      await processExpansionPhase(tx, targetTurn, seed);
+      await processConflictPhase(tx, targetTurn, seed);
+      await processBuildPhase(tx, targetTurn);
+      await processEventsPhase(tx, targetTurn, seed);
 
       // Mark all orders as applied
       await tx.order.updateMany({

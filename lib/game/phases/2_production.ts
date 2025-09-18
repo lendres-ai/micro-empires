@@ -1,10 +1,10 @@
-import { db } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { YIELDS } from '@/lib/game/constants';
 
-export async function processProductionPhase(turn: number): Promise<void> {
+export async function processProductionPhase(tx: Prisma.TransactionClient, turn: number): Promise<void> {
   console.log(`Processing production phase for turn ${turn}`);
 
-  const empires = await db.empire.findMany({
+  const empires = await tx.empire.findMany({
     where: { isEliminated: false },
     include: {
       tiles: true,
@@ -29,7 +29,7 @@ export async function processProductionPhase(turn: number): Promise<void> {
     }
 
     if (totalFood > 0 || totalWood > 0 || totalStone > 0 || totalGold > 0) {
-      await db.empire.update({
+      await tx.empire.update({
         where: { id: empire.id },
         data: {
           food: empire.food + totalFood,
@@ -39,7 +39,7 @@ export async function processProductionPhase(turn: number): Promise<void> {
         },
       });
 
-      await db.log.create({
+      await tx.log.create({
         data: {
           turn,
           empireId: empire.id,
