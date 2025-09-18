@@ -1,17 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { processTurn } from '@/lib/game/processor';
 import { generateMap } from '@/lib/game/map';
 import { db } from '@/lib/db';
 import { getCurrentTurnNumber } from '@/lib/time';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret
-    const cronSecret = request.headers.get('X-CRON-KEY');
-    const expectedSecret = process.env.CRON_SECRET;
-    
-    if (!cronSecret || cronSecret !== expectedSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verify cron secret via Authorization header (Vercel sends Bearer token)
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return new Response('Unauthorized', { status: 401 });
     }
 
     // Determine current target turn based on time and catch up any missed turns
@@ -33,7 +31,7 @@ export async function POST(request: NextRequest) {
       processedTurns.push(turn);
     }
 
-    return NextResponse.json({
+    return Response.json({
       message: processedTurns.length > 0
         ? `Processed turns: ${processedTurns.join(', ')}`
         : 'No turns to process',
@@ -42,9 +40,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in /api/cron/process-turn:', error);
-    return NextResponse.json({ 
-      error: 'Turn processing failed',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    return new Response('Turn processing failed', { status: 500 });
   }
 }
