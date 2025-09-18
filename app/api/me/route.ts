@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getUser } from '../../../lib/auth';
 import { db } from '../../../lib/db';
 import { getCurrentTurnNumber } from '../../../lib/time';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -31,7 +31,7 @@ interface UserData {
   latestTurn: number;
 }
 
-export default function PlayPage() {
+function PlayContent() {
   const searchParams = useSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -264,5 +264,13 @@ export default function PlayPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function PlayPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto p-4">Loading...</div>}>
+      <PlayContent />
+    </Suspense>
   );
 }

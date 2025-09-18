@@ -22,7 +22,17 @@ export async function processBuildPhase(turn: number): Promise<void> {
   }
 }
 
-async function processBuild(order: any, turn: number): Promise<void> {
+interface BuildOrder {
+  targetX: number | null;
+  targetY: number | null;
+  empire: {
+    id: string;
+    wood: number;
+    stone: number;
+  };
+}
+
+async function processBuild(order: BuildOrder, turn: number): Promise<void> {
   const empire = order.empire;
   
   // Get target tile

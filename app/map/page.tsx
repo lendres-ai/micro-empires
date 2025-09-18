@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface MapTile {
   x: number;
@@ -159,7 +158,7 @@ export default function MapPage() {
                   <div key={empireName} className="flex items-center gap-2">
                     <div 
                       className="w-4 h-4 border border-gray-800"
-                      style={{ backgroundColor: empireTile?.ownerColor }}
+                      style={{ backgroundColor: empireTile?.ownerColor ?? undefined }}
                     />
                     <span className="text-sm">{empireName}</span>
                   </div>

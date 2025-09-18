@@ -2,6 +2,16 @@ import { OrderType } from '@prisma/client';
 import { COSTS, WORLD } from '@/lib/game/constants';
 import { db } from '@/lib/db';
 
+interface EmpireForValidation {
+  id: string;
+  isEliminated: boolean;
+  army: number;
+  wood: number;
+  stone: number;
+  tiles: { x: number; y: number }[];
+  orders: unknown[];
+}
+
 export interface OrderValidationResult {
   valid: boolean;
   error?: string;
@@ -64,7 +74,7 @@ export async function validateOrder(
   }
 }
 
-async function validateExpandOrder(empire: any, targetX?: number, targetY?: number): Promise<OrderValidationResult> {
+async function validateExpandOrder(empire: EmpireForValidation, targetX?: number, targetY?: number): Promise<OrderValidationResult> {
   if (targetX === undefined || targetY === undefined) {
     return { valid: false, error: 'Target coordinates required for expansion' };
   }
@@ -88,7 +98,7 @@ async function validateExpandOrder(empire: any, targetX?: number, targetY?: numb
   }
 
   // Check if adjacent to owned tile
-  const isAdjacent = empire.tiles.some((tile: any) => 
+  const isAdjacent = empire.tiles.some((tile) => 
     Math.abs(tile.x - targetX) <= 1 && Math.abs(tile.y - targetY) <= 1 &&
     !(tile.x === targetX && tile.y === targetY)
   );
@@ -105,7 +115,7 @@ async function validateExpandOrder(empire: any, targetX?: number, targetY?: numb
   return { valid: true };
 }
 
-async function validateAttackOrder(empire: any, targetX?: number, targetY?: number, amount?: number): Promise<OrderValidationResult> {
+async function validateAttackOrder(empire: EmpireForValidation, targetX?: number, targetY?: number, amount?: number): Promise<OrderValidationResult> {
   if (targetX === undefined || targetY === undefined) {
     return { valid: false, error: 'Target coordinates required for attack' };
   }
@@ -138,7 +148,7 @@ async function validateAttackOrder(empire: any, targetX?: number, targetY?: numb
   }
 
   // Check if adjacent to owned tile
-  const isAdjacent = empire.tiles.some((tile: any) => 
+  const isAdjacent = empire.tiles.some((tile) => 
     Math.abs(tile.x - targetX) <= 1 && Math.abs(tile.y - targetY) <= 1 &&
     !(tile.x === targetX && tile.y === targetY)
   );
@@ -150,7 +160,7 @@ async function validateAttackOrder(empire: any, targetX?: number, targetY?: numb
   return { valid: true };
 }
 
-async function validateBuildOrder(empire: any, targetX?: number, targetY?: number): Promise<OrderValidationResult> {
+async function validateBuildOrder(empire: EmpireForValidation, targetX?: number, targetY?: number): Promise<OrderValidationResult> {
   if (targetX === undefined || targetY === undefined) {
     return { valid: false, error: 'Target coordinates required for building' };
   }
@@ -185,7 +195,7 @@ async function validateBuildOrder(empire: any, targetX?: number, targetY?: numbe
   return { valid: true };
 }
 
-async function validateDefendOrder(empire: any, targetX?: number, targetY?: number): Promise<OrderValidationResult> {
+async function validateDefendOrder(empire: EmpireForValidation, targetX?: number, targetY?: number): Promise<OrderValidationResult> {
   if (targetX === undefined || targetY === undefined) {
     return { valid: false, error: 'Target coordinates required for defense' };
   }

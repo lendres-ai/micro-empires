@@ -1,6 +1,19 @@
 import { db } from '@/lib/db';
 import { COSTS } from '@/lib/game/constants';
 import { createRNG } from '@/lib/rng';
+import type { SeededRNG } from '@/lib/rng';
+
+interface ExpansionOrder {
+  targetX: number | null;
+  targetY: number | null;
+  empire: {
+    id: string;
+    wood: number;
+    stone: number;
+    army: number;
+    tilesOwned: number;
+  };
+}
 
 export async function processExpansionPhase(turn: number, seed: string): Promise<void> {
   console.log(`Processing expansion phase for turn ${turn}`);
@@ -17,7 +30,7 @@ export async function processExpansionPhase(turn: number, seed: string): Promise
   });
 
   // Group orders by target tile to handle conflicts
-  const ordersByTile = new Map<string, typeof expansionOrders>();
+  const ordersByTile = new Map<string, ExpansionOrder[]>();
   
   for (const order of expansionOrders) {
     if (order.targetX !== null && order.targetY !== null) {
@@ -31,18 +44,18 @@ export async function processExpansionPhase(turn: number, seed: string): Promise
 
   const rng = createRNG(seed, turn, 'expansion');
 
-  for (const [tileKey, orders] of ordersByTile) {
+  for (const [, orders] of ordersByTile) {
     if (orders.length === 1) {
       // Single order - process directly
-      await processSingleExpansion(orders[0], turn);
+      await processSingleExpansion(orders[0] as ExpansionOrder, turn);
     } else {
       // Multiple orders - resolve conflict
-      await resolveExpansionConflict(orders, turn, rng);
+      await resolveExpansionConflict(orders as ExpansionOrder[], turn, rng);
     }
   }
 }
 
-async function processSingleExpansion(order: any, turn: number): Promise<void> {
+async function processSingleExpansion(order: ExpansionOrder, turn: number): Promise<void> {
   const empire = order.empire;
   
   // Double-check resources
@@ -84,7 +97,7 @@ async function processSingleExpansion(order: any, turn: number): Promise<void> {
   });
 }
 
-async function resolveExpansionConflict(orders: any[], turn: number, rng: any): Promise<void> {
+async function resolveExpansionConflict(orders: ExpansionOrder[], turn: number, rng: SeededRNG): Promise<void> {
   // For MVP, simple resolution: highest army wins, then random tie-break
   orders.sort((a, b) => {
     if (a.empire.army !== b.empire.army) {
