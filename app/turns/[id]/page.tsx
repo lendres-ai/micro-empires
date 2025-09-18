@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,31 +19,28 @@ interface Log {
   empireId: string | null;
   scope: string;
   message: string;
-  data: any;
+  data: unknown;
   createdAt: string;
 }
 
-export default function TurnDetailsPage({ params }: { params: { id: string } }) {
+export default function TurnDetailsPage() {
   const [turn, setTurn] = useState<Turn | null>(null);
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
+  const { id } = useParams<{ id: string }>();
 
-  useEffect(() => {
-    fetchTurnDetails();
-  }, [params.id]);
-
-  const fetchTurnDetails = async () => {
+  const fetchTurnDetails = useCallback(async () => {
     try {
       // Fetch turn details
       const turnResponse = await fetch('/api/turns');
       if (turnResponse.ok) {
         const turns = await turnResponse.json();
-        const currentTurn = turns.find((t: Turn) => t.id === parseInt(params.id));
+        const currentTurn = turns.find((t: Turn) => t.id === parseInt(id));
         setTurn(currentTurn || null);
       }
 
       // Fetch logs for this turn
-      const logsResponse = await fetch(`/api/turns/${params.id}/logs`);
+      const logsResponse = await fetch(`/api/turns/${id}/logs`);
       if (logsResponse.ok) {
         const logsData = await logsResponse.json();
         setLogs(logsData);
@@ -52,7 +50,11 @@ export default function TurnDetailsPage({ params }: { params: { id: string } }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchTurnDetails();
+  }, [fetchTurnDetails]);
 
   const getScopeColor = (scope: string) => {
     switch (scope) {

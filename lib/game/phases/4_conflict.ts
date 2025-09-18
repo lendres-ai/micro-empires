@@ -1,6 +1,20 @@
 import { db } from '@/lib/db';
 import { COMBAT } from '@/lib/game/constants';
 import { createRNG } from '@/lib/rng';
+import type { SeededRNG } from '@/lib/rng';
+
+interface AttackOrder {
+  targetX: number | null;
+  targetY: number | null;
+  amount: number;
+  empire: {
+    id: string;
+    name: string;
+    army: number;
+    tilesOwned: number;
+    gold: number;
+  };
+}
 
 export async function processConflictPhase(turn: number, seed: string): Promise<void> {
   console.log(`Processing conflict phase for turn ${turn}`);
@@ -20,12 +34,12 @@ export async function processConflictPhase(turn: number, seed: string): Promise<
 
   for (const order of attackOrders) {
     if (order.targetX !== null && order.targetY !== null && order.amount !== null) {
-      await processAttack(order, turn, rng);
+      await processAttack(order as unknown as AttackOrder, turn, rng);
     }
   }
 }
 
-async function processAttack(order: any, turn: number, rng: any): Promise<void> {
+async function processAttack(order: AttackOrder, turn: number, rng: SeededRNG): Promise<void> {
   const attacker = order.empire;
   
   // Get target tile and defender
