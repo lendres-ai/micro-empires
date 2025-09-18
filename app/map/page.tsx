@@ -43,7 +43,7 @@ export default function MapPage() {
 
   const fetchMap = async () => {
     try {
-      const response = await fetch('/api/map');
+      const response = await fetch('/api/map', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setTiles(data);

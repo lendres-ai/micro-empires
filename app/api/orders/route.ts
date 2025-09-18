@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '../../../lib/auth';
 import { db } from '../../../lib/db';
-import { getCurrentTurnNumber } from '../../../lib/time';
+import { getActiveTurnNumber } from '@/lib/turns';
 import { validateOrder } from '../../../lib/game/rules';
 import { OrderType } from '@prisma/client';
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid order type' }, { status: 400 });
     }
 
-    const currentTurn = getCurrentTurnNumber();
+    const currentTurn = await getActiveTurnNumber();
 
     // Validate the order
     const validation = await validateOrder(
@@ -86,7 +86,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
     }
 
-    const currentTurn = getCurrentTurnNumber();
+    const currentTurn = await getActiveTurnNumber();
 
     // Delete the order (only if it belongs to this empire and is pending)
     const deletedOrder = await db.order.deleteMany({
