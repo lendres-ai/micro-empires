@@ -3,13 +3,11 @@ import { processTurn } from '@/lib/game/processor';
 import { generateMap } from '@/lib/game/map';
 import { db } from '@/lib/db';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret
-    const cronSecret = request.headers.get('X-CRON-KEY');
-    const expectedSecret = process.env.CRON_SECRET;
-    
-    if (!cronSecret || cronSecret !== expectedSecret) {
+    // Verify cron secret using Authorization: Bearer <CRON_SECRET>
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
